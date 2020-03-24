@@ -19,3 +19,8 @@
  * Add your file-related functions here ...
  */
 
+/*
+int open(const char *filename, int flags, ...) {
+    VFS_OPEN(NULL,NULL,NULL,NULL);
+}
+*/
