@@ -71,6 +71,8 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
+	/* File Descriptor Table */
+	//array of pointers to the open files
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
