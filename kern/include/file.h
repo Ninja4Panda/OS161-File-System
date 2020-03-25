@@ -11,18 +11,18 @@
  */
 #include <limits.h>
 
+/* File pointer structure */
+typedef struct filePointer{
+    off_t         pos;    //position of the file pointer
+    int flag;
+} FP;
+
 /* Open File structure */
 typedef struct openfile {
     int          ref_count; //count how many open file pointers refer to this struct
     FP           *fp;       //Pointer to a file pointer
     struct vnode *vnode;    //Pointer to a vnode
 } OP;
-
-/* File pointer structure */
-typedef struct filePointer{
-    off_t         pos;    //position of the file pointer
-    int flag;
-} FP;
 
 
 /**
@@ -38,7 +38,7 @@ typedef struct filePointer{
  * dup2     - clone file handles
  */
 
-int sys_open(const char *filename, int flags, ...); //The last argument is permission 
+int sys_open(const char *filename, int flags, mode_t mode); //The last argument is permission 
 int sys_close(int fd);
 
 ssize_t sys_read(int fd, void *buf, size_t buflen);
