@@ -24,15 +24,25 @@ FP *newFP(int flag) {
     return fp;
 }
 
+/* Create a new file */
+OP *newOP(FP *fp, struct vnode *vnode) {
+    OP *op = kmalloc(sizeof *op);
+    KASSERT(op != NULL);
+    op->ref_count = 1;
+    op->fp = fp;
+    op->vnode = vnode;
+    return op;
+}
+
 int sys_open(const char *filename, int flags, mode_t mode) {
     kprintf("This is test for open\n");
     kprintf("flags: %d\n", flags);
     kprintf("filename: %s\n", filename);
     kprintf("mode: %u\n", mode);
     //create a new file pointer
-    //FP *fp = newFP(flags);
+    FP *fp = newFP(flags);
     //find current process
-    curproc->
+    curproc->openFileTable[] = fp; 
     //call vfs_open with the &vnode
     //create a new open file struct 
     //OP new = {1, fp, };

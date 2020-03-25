@@ -12,11 +12,16 @@
 #include <limits.h>
 #define OPEN_MAX __OPEN_MAX
 
-/* File pointer structure */
+/** File pointer structure 
+ *  newFP     - Create a New file pointer
+ */
 typedef struct filePointer{
     off_t         pos;    //position of the file pointer
     int flag;
 } FP;
+
+FP *newFP(int flag);
+
 
 /* Open File structure */
 typedef struct openfile {
@@ -25,7 +30,8 @@ typedef struct openfile {
     struct vnode *vnode;    //Pointer to a vnode
 } OP;
 
-FP *newFP(int flag);
+OP *newOP(FP *fp, struct vnode *vnode);
+
 /**
  * User-level File functions.
  * 

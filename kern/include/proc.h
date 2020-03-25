@@ -71,9 +71,17 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
-	/* add more material here as needed */
 	/* open files pointers array */
 	OP *openFileTable[OPEN_MAX];
+
+	/**
+	 * This is the lowest index 
+	 * There shouldn't be concurrency issues assuming single-threaded
+	 */
+	int lowestIndex; 
+
+	/* */
+
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
