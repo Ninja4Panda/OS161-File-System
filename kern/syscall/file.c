@@ -15,39 +15,30 @@
 #include <syscall.h>
 #include <copyinout.h>
 
-// /* global open file table */
-// OP openFileTbl[128];
-// int n_openFile = 0;             //index for the open file table
-// struct semaphore *array_mutex;  //global mutex only one process can modify 
-//                                 //the table at a time
-
-// /* Create a new file pointer */
-// FP *newFP(char *filename, int flag) {
-//     FP *fp = kmalloc(sizeof *fp);
-//     KASSERT(fp != NULL);
-//     fp->pos = 0;
-//     fp->flag = flag;
-//     return fp;
-// }
+/* Create a new file pointer */
+FP *newFP(int flag) {
+    FP *fp = kmalloc(sizeof *fp);
+    KASSERT(fp != NULL);
+    fp->pos = 0;
+    fp->flag = flag;
+    return fp;
+}
 
 int sys_open(const char *filename, int flags, mode_t mode) {
-    // //create a new file pointer
-    // FP *fp = newFP(filename, flags);
-    // //call vfs_open with the &vnode
     kprintf("This is test for open\n");
     kprintf("flags: %d\n", flags);
     kprintf("filename: %s\n", filename);
     kprintf("mode: %u\n", mode);
-    // //create a new open file struct 
-    // OP new = {1, fp, };
-    // //critical region need some way to control the access to the array 
-    // //The following doesn't work right now
-    // array_mutex = sem_create("array_mutex", 1);
-    // P(array_mutex);
-    // openFileTbl[n_openFile] = new;     //store the new struct in openfiletable
-    // OP *pt = &openFileTbl[n_openFile]; //create a new open file pointer
-    // n_openFile++; 
-    // V(array_mutex);
+    //create a new file pointer
+    //FP *fp = newFP(flags);
+    //find current process
+    curproc->
+    //call vfs_open with the &vnode
+    //create a new open file struct 
+    //OP new = {1, fp, };
+    //critical region need some way to control the access to the array 
+    //The following doesn't work right now
+
     //point it to the struct
     //store it into current process array
     return 1;

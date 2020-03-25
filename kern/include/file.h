@@ -10,6 +10,7 @@
  * Contains some file-related maximum length constants
  */
 #include <limits.h>
+#define OPEN_MAX __OPEN_MAX
 
 /* File pointer structure */
 typedef struct filePointer{
@@ -24,7 +25,7 @@ typedef struct openfile {
     struct vnode *vnode;    //Pointer to a vnode
 } OP;
 
-
+FP *newFP(int flag);
 /**
  * User-level File functions.
  * 
