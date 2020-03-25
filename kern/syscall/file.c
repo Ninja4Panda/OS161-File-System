@@ -30,7 +30,7 @@ FP *newFP(char *filename, int flag) {
     return fp;
 }
 
-int open(const char *filename, int flags, ...) {
+int sys_open(const char *filename, int flags, ...) {
     //create a new file pointer
     FP *fp = newFP(filename, flags);
     //call vfs_open with the &vnode
@@ -52,7 +52,7 @@ int open(const char *filename, int flags, ...) {
     //return the file descriptor
 }
 
-int close(int fd) {
+int sys_close(int fd) {
     //decrease the ref count in openfile
         //if openfile ref_count == 0  
             //decrease vnode ref count
