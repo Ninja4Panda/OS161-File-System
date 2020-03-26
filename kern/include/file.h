@@ -1,10 +1,25 @@
 /*
  * Declarations for file handle and file table management.
+ * 
+ * Overview of the file structure:
+ * -Process
+ *   - Every process has a fixed size array containing pointers to open
+ *     files struct
+ *   - The file descriptor(fd) would be the index of the array
+ *   - The same pointer can be shared among different processes
+ * 
+ * Instead of having a global open file structure, a openfile struct pointer 
+ * is in place. Because the pointers are kmalloced it can shared among different
+ * processes. A ref_count is in place to track how many processes are referencing 
+ * this pointer.
+ *  
+ * fork() should copy the entire open file table from parents over 
+ * to child so that both parents and child share the same openfile pointer 
+ * 
  */
 
 #ifndef _FILE_H_
 #define _FILE_H_
-
 
 /*
  * Contains some file-related maximum length constants
@@ -12,8 +27,10 @@
 #include <limits.h>
 #define OPEN_MAX __OPEN_MAX
 
-/** File pointer structure 
- *  newFP   - Create a pointer to a new file pointer
+/** 
+ * File pointer structure 
+ * 
+ * newFP   - Create a pointer to a new file pointer
  */
 typedef struct filePointer{
     off_t         pos;    //position of the file pointer
@@ -23,9 +40,10 @@ typedef struct filePointer{
 
 FP *newFP(int flag);
 
-
-/** Open File structure 
- *  newOP   - Create a new open file pointer
+/** 
+ * Open File structure 
+ * 
+ * newOP   - Create a new open file pointer
 */
 typedef struct openfile {
     int          ref_count; //count how many open file pointers refer to this struct

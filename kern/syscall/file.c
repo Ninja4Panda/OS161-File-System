@@ -63,7 +63,7 @@ OP *newOP(FP *fp, struct vnode *vnode) {
 
 /**
  * Open 
-*/
+ */
 int sys_open(char *filename, int flags, mode_t mode) {
     kprintf("This is test for open\n");
     kprintf("flags: %d\n", flags);
@@ -97,6 +97,16 @@ int sys_open(char *filename, int flags, mode_t mode) {
     //return the file descriptor
 }
 
+
+/**
+ * Close 
+ * 
+ * Check the ref_count in vnode only call vfs_close when ref_count = 1
+ * and now it is safe to free all the pointers and remove from process array.
+ * If not, check ref_count of openfile. Free the pointer if ref_count = 1
+ * if not, remove from process array to indiciate that it is free
+ *  
+*/
 int sys_close(int fd) {
     kprintf("This is test for close\n");
     kprintf("%d\n", fd);
@@ -133,6 +143,14 @@ off_t sys_lseek(int fd, off_t pos, int whence) {
     return 1;
 }
 
+/**
+ * 
+ * Remember to check
+ * Don't create new open file pointer 
+ * simply check things and make the opFileTbl[newfd] = opFileTbl[oldfd] 
+ * and ref_count++
+ * 
+*/
 int sys_dup2(int oldfd, int newfd) {
     kprintf("This is test for dup2\n");
     kprintf("oldfd: %d\n", oldfd);
