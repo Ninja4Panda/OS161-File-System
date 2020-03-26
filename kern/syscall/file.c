@@ -73,7 +73,7 @@ int sys_open(char *filename, int flags, mode_t mode) {
     struct vnode *vnode = NULL;
     //call vfs_open with the vnode
     int err = vfs_open(filename, flags, mode, &vnode);
-    //open file successed
+    //open file succcesful
     if (err == 0) {
 
     }
