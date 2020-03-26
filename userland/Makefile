@@ -6,7 +6,7 @@ TOP=..
 .include "$(TOP)/mk/os161.config.mk"
 
 # lib must be first.
-SUBDIRS=lib .WAIT bin sbin testbin
+SUBDIRS=lib .WAIT bin sbin testbin tests
 
 INCLUDES=\
 	include include \

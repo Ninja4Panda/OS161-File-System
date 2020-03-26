@@ -13,17 +13,20 @@
 #define OPEN_MAX __OPEN_MAX
 
 /** File pointer structure 
- *  newFP     - Create a New file pointer
+ *  newFP   - Create a pointer to a new file pointer
  */
 typedef struct filePointer{
     off_t         pos;    //position of the file pointer
-    int flag;
+    unsigned int read;
+    unsigned int write;
 } FP;
 
 FP *newFP(int flag);
 
 
-/* Open File structure */
+/** Open File structure 
+ *  newOP   - Create a new open file pointer
+*/
 typedef struct openfile {
     int          ref_count; //count how many open file pointers refer to this struct
     FP           *fp;       //Pointer to a file pointer
@@ -45,7 +48,7 @@ OP *newOP(FP *fp, struct vnode *vnode);
  * dup2     - clone file handles
  */
 
-int sys_open(const char *filename, int flags, mode_t mode); //The last argument is permission 
+int sys_open(char *filename, int flags, mode_t mode); //The last argument is permission 
 int sys_close(int fd);
 
 ssize_t sys_read(int fd, void *buf, size_t buflen);

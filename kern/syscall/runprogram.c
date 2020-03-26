@@ -44,6 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <file.h>
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -96,6 +97,30 @@ runprogram(char *progname)
 		/* p_addrspace will go away when curproc is destroyed */
 		return result;
 	}
+	
+	/* connecting to stdout and stderr */
+	char c1[] = "con:";
+	struct vnode *stdout;
+	result = vfs_open(c1, O_WRONLY, 0, &stdout); 
+	if(result) {
+		return result;
+	}
+
+	char c2[] = "con:";
+	struct vnode *stderr;
+	result = vfs_open(c2, O_WRONLY, 0, &stderr);
+	if(result) {
+		return result;
+	}
+
+	/* Update the current process opened file table*/
+	FP *fp = newFP(O_WRONLY);
+	OP *op = newOP(fp, stdout);
+	curproc->openFileTable[1] = op; 
+
+	fp = newFP(O_WRONLY);
+	op = newOP(fp, stderr);
+	curproc->openFileTable[2] = op; 
 
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,

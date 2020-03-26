@@ -82,6 +82,8 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
+	/* Reserve the first 3 for stdin,out,err */
+	proc->lowestIndex = 3;
 	return proc;
 }
 

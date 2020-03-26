@@ -15,16 +15,43 @@
 #include <syscall.h>
 #include <copyinout.h>
 
-/* Create a new file pointer */
-FP *newFP(int flag) {
+/**
+ * Create a pointer to a new file pointer
+ * 
+ * Initialising the pos to 0 because it is
+ * always read from the start of file
+ * 
+ * This funciton has to be called in a protected way
+ * as in caller has to guarantee that flag is valid
+*/
+FP *newFP(int flags) {
     FP *fp = kmalloc(sizeof *fp);
     KASSERT(fp != NULL);
     fp->pos = 0;
-    fp->flag = flag;
+
+    //setting the flags
+    flags = flags & O_ACCMODE;
+    fp->read = 1;
+    fp->write = 1;
+    if (flags == O_RDONLY) {
+        fp->write = 0;
+    } else if(flags == O_WRONLY) {
+        fp->read = 0;
+    }
+
     return fp;
 }
 
-/* Create a new file */
+/**
+ * Create a new open file pointer
+ * 
+ * ref_count is initialised to 1
+ * as there is only 1 pointer refer to
+ * it at first, as more pointer refers
+ * to it (from dup2() or fork()) it will go up
+ * 
+ * Note there might be concurrency issue with ref_count
+*/
 OP *newOP(FP *fp, struct vnode *vnode) {
     OP *op = kmalloc(sizeof *op);
     KASSERT(op != NULL);
@@ -34,20 +61,35 @@ OP *newOP(FP *fp, struct vnode *vnode) {
     return op;
 }
 
-int sys_open(const char *filename, int flags, mode_t mode) {
+/**
+ * Open 
+*/
+int sys_open(char *filename, int flags, mode_t mode) {
     kprintf("This is test for open\n");
     kprintf("flags: %d\n", flags);
     kprintf("filename: %s\n", filename);
     kprintf("mode: %u\n", mode);
+    //create a vnode struct
+    struct vnode *vnode = NULL;
+    //call vfs_open with the vnode
+    int err = vfs_open(filename, flags, mode, &vnode);
+    //open file successed
+    if (err == 0) {
+
+    }
     //create a new file pointer
-    FP *fp = newFP(flags);
-    //find current process
-    curproc->openFileTable[] = fp; 
-    //call vfs_open with the &vnode
-    //create a new open file struct 
-    //OP new = {1, fp, };
-    //critical region need some way to control the access to the array 
-    //The following doesn't work right now
+    //FP *fp = newFP(flags);
+    /**
+     * Get the current working directory basing on the flag
+     * if the flag O_EXCL is on then it should fail if the file 
+     * already exists
+     * 
+    */
+    //create a new openfile pointer
+    //OP *op = newOP(fp, );
+    //store the new open file pointer to current process
+    //curproc->openFileTable[curproc->lowestIndex] = op; 
+
 
     //point it to the struct
     //store it into current process array
