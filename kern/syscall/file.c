@@ -29,7 +29,7 @@ FP *newFP(int flags) {
     FP *fp = kmalloc(sizeof *fp);
     KASSERT(fp != NULL);
     fp->pos = 0;
-
+    fp->pos_mutex = sem_create("pos_mutex", 1);
     //setting the flags
     flags = flags & O_ACCMODE;
     fp->read = 1;
