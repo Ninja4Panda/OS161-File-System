@@ -33,35 +33,39 @@
  * File pointer structure 
  * 
  * newFP   - Create a pointer to a new file pointer
+ * freeFP  - Free the entire structure
  */
 typedef struct filePointer{
-    off_t         pos;    /* position of the file pointer */
-    unsigned int read;    /* opening flags */
-    unsigned int write;   /* opening flags */  
+    off_t            pos;          /* Position of the file pointer */
+    struct semaphore *pos_mutex;   /* Semaphore for concurrent access of file position */   
+    unsigned int     read;         /* Opening flags */
+    unsigned int     write;        /* Opening flags */  
 } FP;
 
 FP *newFP(int flag);
-
+void freeFP(FP *fp);
 
 /** 
  * Open File structure 
  * 
  * newOP           - Create a new open file pointer
+ * freeOP          - Free the entire structure
  * 
  * inc_ref_count   - Increase the ref_count safely
- * dec_ref_count   - Decrease the ref_count safely
+ * dec_ref_count   - Decrease the ref_count safely and return the ref_count
 */
 typedef struct openfile {
-    struct semaphore *count_mutex; /* Lock for concurrent access of ref_count */   
-    int              ref_count;   /* Count how many open file pointers refer to this struct */
-    FP               *fp;         /* Pointer to a file pointer */
-    struct vnode     *vnode;      /* Pointer to a vnode */
+    struct semaphore *count_mutex; /* Semaphore for concurrent access of ref_count */   
+    int              ref_count;    /* Count how many open file pointers refer to this struct */
+    FP               *fp;          /* Pointer to a file pointer */
+    struct vnode     *vnode;       /* Pointer to a vnode */
 } OP;
 
 OP *newOP(FP *fp, struct vnode *vnode);
+void freeOP(OP *op);
 
 void inc_ref_count(OP *op);
-void dec_ref_count(OP *op);
+int dec_ref_count(OP *op);
 
 
 /**

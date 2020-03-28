@@ -320,3 +320,27 @@ proc_setas(struct addrspace *newas)
 	spinlock_release(&proc->p_lock);
 	return oldas;
 }
+
+/** 
+ * Return the lowest valid index in the process table.
+ * And set up the next lowest index 
+ */
+int findLowest(void) {
+	struct proc *proc = curproc;
+	KASSERT(proc != NULL);
+
+	/* This is the lowest index */
+	int lowest = proc->lowestIndex;
+	/* Find the next lowest valid index */
+	int i = lowest;
+	while(i < OPEN_MAX) {
+		if (proc->openFileTable[i] == NULL) {
+			proc->lowestIndex = i;
+			break;
+		}
+		i++;
+	}
+	/* Table is full and cannot find lowest free index */
+	if (i == 128) proc->lowestIndex = i;
+	return lowest;
+} 

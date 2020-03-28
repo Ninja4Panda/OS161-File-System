@@ -43,6 +43,13 @@ FP *newFP(int flags) {
     return fp;
 }
 
+/* Free the entire FP structure */
+void freeFP(FP *fp) {
+    KASSERT(fp != NULL);
+    sem_destroy(fp->pos_mutex);
+    kfree(fp);
+}
+
 /**
  * Create a new open file pointer
  * 
@@ -52,7 +59,7 @@ FP *newFP(int flags) {
  * to it (from dup2() or fork()) it will go up
  * 
  * There should be only one process accessing the 
- * open file at a time 
+ * ref_count at a time 
 */
 OP *newOP(FP *fp, struct vnode *vnode) {
     OP *op = kmalloc(sizeof *op);
@@ -64,11 +71,40 @@ OP *newOP(FP *fp, struct vnode *vnode) {
     return op;
 }
 
-/**
+/* Free the entire OP structure */
+void freeOP(OP *op) {
+    KASSERT(op != NULL);
+    sem_destroy(op->count_mutex);
+    freeFP(op->fp);
+    kfree(op);
+}
+
+/* Increase the ref_count safely */
+void inc_ref_count(OP *op) {
+    KASSERT(op != NULL);
+    P(op->count_mutex);
+    op->ref_count++;
+    P(op->count_mutex);
+}
+
+/* Decrease the ref_count safely and return the ref_count */
+int dec_ref_count(OP *op) {
+    KASSERT(op != NULL);
+    P(op->count_mutex);
+    op->ref_count--;
+    int x = op->ref_count;
+    P(op->count_mutex);
+    return x;
+}
+
+/** 
  * Open 
  * 
- * Mode is the permission which we pass in for vfs to
- * handle it. 
+ * Open or create a file. The Openning part is handle by the 
+ * VFS layer so we simply store relevant data and control access.
+ * 
+ * Returns the negate of errno on error
+ * Returns fd on success   
  */
 int sys_open(const char *filename, int flags, mode_t mode) {
     kprintf("This is test for open\n");
@@ -77,62 +113,81 @@ int sys_open(const char *filename, int flags, mode_t mode) {
     kprintf("mode: %u\n", mode);
     int result;
 
-    /* handling the copy */
+    /* Handling the copy */
     char path[NAME_MAX];
     size_t size;
     result = copyinstr((userptr_t)filename, path, NAME_MAX, &size);
-    kprintf("%s\n", path);
     if (result) {
-        return result;
+        return -result;
     }
     
-    /* pass the arguments to vfs_open */
+    /* Pass the arguments to vfs_open */
     struct vnode *vnode = NULL;
     result = vfs_open(path, flags, mode, &vnode);
-    kprintf("%p", vnode);
-    kprintf("%d\n", vnode->vn_refcount);
-
-    /*open file succcesful*/
-    if (result == 0) {
-        FP *fp = newFP(flags);
-        OP *op = newOP(fp, vnode);
-        int fd = curproc->lowestIndex;
-        curproc->openFileTable[fd] = op;
-        kprintf("%d ", curproc->openFileTable[3]->fp->read);
-        kprintf("%p ", curproc->openFileTable[0]);
-        kprintf("%d ", curproc->openFileTable[1]->fp->read);
-        kprintf("%d ", curproc->openFileTable[2]->fp->write);
-        kprintf("%d ", curproc->openFileTable[3]->fp->write);
-        //return the file descriptor
-        return fd;
+    if(result) {
+        /* Negate every error */
+        return -result;
     }
-    //vfs_open can return something else???
-    KASSERT(1==0);
-    return 0;
+
+    /* Open file succcesful */
+    FP *fp = newFP(flags);
+    OP *op = newOP(fp, vnode);
+
+    /* Finds the lowest possible index in the process table */
+    int fd = findLowest();
+    /* Return -EMFILE to indictate process table is full */
+    if (fd == OPEN_MAX) return -EMFILE;
+
+    /* Store the op into the process table */
+    curproc->openFileTable[fd] = op;
+
+    /* Return the file descriptor */
+    return fd;
 }
 
+/**
+ * Helper function 
+ * Checks if the fd is valid
+*/
+static int checkFD(int fd) {
+    struct proc *proc = curproc;
+    KASSERT(proc != NULL);
+    if(fd < 0 || proc->openFileTable[fd] == NULL || fd >= OPEN_MAX) return 1;
+    return 0;
+}
 
 /**
  * Close 
  * 
- * Check the ref_count in vnode, only call vfs_close when ref_count = 1
- * and now it is safe to free all the pointers and reset the lowest value.
- * If not, check ref_count of openfile. Free the pointers in the process array
- * if ref_count = 1
- * if not, reset the lowest value to indiciate that it is free.
- *  
+ * Close a file and house keeping
+ * 
+ * Returns errno on error
+ * Returns 1 on success 
 */
 int sys_close(int fd) {
     kprintf("This is test for close\n");
     kprintf("%d\n", fd);
-    /* check if the fd is valid */
-    if(curproc->openFileTable[fd] == NULL) return ;
 
-    //decrease the ref count in openfile
-        //if openfile ref_count == 0  
-            //decrease vnode ref count
-            //if the vnode ref count==1
-                //call vfs_close 
+    /* check if the fd is valid */
+    if(checkFD(fd)) return EBADF;
+    
+    /* Setup */
+    struct proc *proc = curproc;
+	KASSERT(proc != NULL);
+    OP *op = proc->openFileTable[fd];
+    struct vnode* vnode = op->vnode; 
+    
+    /* Decrease both ref_count */
+    int ref_count = dec_ref_count(op);
+    vfs_close(vnode);
+
+    /* Free the pointer */
+    if (ref_count == 0) freeOP(op);
+    
+    /* Make the array[fd] NULL for a new pointer */
+    proc->openFileTable[fd] = NULL;
+    /* Set the new lowest index if applicable */
+    if(proc->lowestIndex>fd) proc->lowestIndex = fd;
     return 0;
 }
 
@@ -150,6 +205,23 @@ ssize_t sys_write(int fd, const void *buf, size_t nbytes) {
     kprintf("fd: %d\n", fd);
     kprintf("bytes: %d\n", nbytes);
     kprintf("buf: %p\n", buf);
+    /* Check if the fd is valid */
+    if(checkFD(fd)) return -EBADF;
+
+    /* Setup */
+    struct proc *proc = curproc;
+	KASSERT(proc != NULL);
+    OP *op = proc->openFileTable[fd];
+    FP *fp = op->fp;
+    struct vnode* vnode = op->vnode; 
+
+    /* Check if it is opened for write */
+    if(fp->write == 0) return -EBADF;
+
+    /* Write to the file */
+    int byte_count = VOP_WRITE(vn, uio);  
+    /* Get the count of bytes written in uio */
+    
     return 1;
 }
 
@@ -162,16 +234,40 @@ off_t sys_lseek(int fd, off_t pos, int whence) {
 }
 
 /**
+ * dup2
  * 
- * Remember to check
- * Don't create new open file pointer 
- * simply check things and make the opFileTbl[newfd] = opFileTbl[oldfd] 
- * and ref_count++
+ * Clone file handles. Note that no new pointers are created 
+ * dup2 simply points the newfd to the same struct as the oldfd
  * 
+ * Returns the negate of errno on error
+ * Returns fd on success   
 */
 int sys_dup2(int oldfd, int newfd) {
     kprintf("This is test for dup2\n");
     kprintf("oldfd: %d\n", oldfd);
     kprintf("newfd: %d\n", newfd);
-    return 1;
+    /* Check if the fd is valid */
+    if(checkFD(oldfd) || newfd < 0 || newfd >= OPEN_MAX) return -EBADF;
+
+    /* Setup */
+    struct proc *proc = curproc;
+    OP *newop = proc->openFileTable[newfd];
+    OP *oldop = proc->openFileTable[oldfd];
+    struct vnode *vnode = proc->openFileTable[oldfd]->vnode;
+
+    /* Check if the newfd is an opened file & close it */
+    if (newop != NULL) {
+        int result = sys_close(newfd);
+        if (result) return -result;
+    } 
+
+    /* Increase both ref_counts */
+    inc_ref_count(oldop);
+    VOP_INCREF(vnode);
+    
+    /* Make them point to the same file */
+    proc->openFileTable[newfd] = oldop;
+    return newfd;
 }
+
+

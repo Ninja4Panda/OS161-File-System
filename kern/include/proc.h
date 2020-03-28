@@ -75,13 +75,10 @@ struct proc {
 	OP *openFileTable[OPEN_MAX];
 
 	/**
-	 * This is the lowest index 
+	 * This is always the lowest valid index 
 	 * There shouldn't be concurrency issues assuming single-threaded
 	 */
 	int lowestIndex; 
-
-	/* */
-
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -108,5 +105,6 @@ struct addrspace *proc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
 
-
+/* Find the lowest index to assign as fd next */
+int findLowest(void);
 #endif /* _PROC_H_ */

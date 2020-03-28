@@ -117,6 +117,15 @@ syscall(struct trapframe *tf)
 		/* File system syscall */
 		case SYS_open:
 			retval = sys_open((const char *)tf->tf_a0, tf->tf_a1, (mode_t)tf->tf_a2);
+			/* If retval is negative error has occured */
+			if (retval < 0) {
+				err = -retval;
+			} else {
+				err = 0;
+			}		
+			kprintf("%d ", retval);
+			kprintf("%d", err);
+			KASSERT(1==2);
 			break;
 
 		case SYS_close:
@@ -128,11 +137,21 @@ syscall(struct trapframe *tf)
 			break;
 
 		case SYS_write:
-			err = sys_write(tf->tf_a0, (const void*)tf->tf_a1, (size_t)tf->tf_a2);
+			retval = sys_write(tf->tf_a0, (const void*)tf->tf_a1, (size_t)tf->tf_a2);
+			if (retval < 0) {
+				err = -retval;
+			} else {
+				err = 0;
+			}		
 			break;
 		
 		case SYS_dup2:
-			err = sys_dup2(tf->tf_a0, tf->tf_a1);
+			retval = sys_dup2(tf->tf_a0, tf->tf_a1);
+			if (retval < 0) {
+				err = -retval;
+			} else {
+				err = 0;
+			}		
 			break;
 		
 		case SYS_lseek:
