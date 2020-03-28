@@ -9,13 +9,13 @@
  *   - The same pointer can be shared among different processes
  * 
  * Instead of having a global open file structure, a openfile struct pointer 
- * is in place. Because the pointers are kmalloced it can shared among different
- * processes. A ref_count is in place to track how many processes are referencing 
+ * is in place.The same pointer is then shared among different processes. 
+ * A ref_count is in place to track how many processes are referencing 
  * this pointer.
  *  
- * fork() should copy the entire open file table from parents over 
- * to child so that both parents and child share the same openfile pointer 
- * 
+ * fork() needs to copy the entire open file table from parents over 
+ * to child and increase the ref_count in each node so that both parents 
+ * and child share the same openfile pointer 
  */
 
 #ifndef _FILE_H_
@@ -25,33 +25,44 @@
  * Contains some file-related maximum length constants
  */
 #include <limits.h>
-#define OPEN_MAX __OPEN_MAX
+#include <synch.h>
 
+#define OPEN_MAX __OPEN_MAX
+#define NAME_MAX __NAME_MAX
 /** 
  * File pointer structure 
  * 
  * newFP   - Create a pointer to a new file pointer
  */
 typedef struct filePointer{
-    off_t         pos;    //position of the file pointer
-    unsigned int read;
-    unsigned int write;
+    off_t         pos;    /* position of the file pointer */
+    unsigned int read;    /* opening flags */
+    unsigned int write;   /* opening flags */  
 } FP;
 
 FP *newFP(int flag);
 
+
 /** 
  * Open File structure 
  * 
- * newOP   - Create a new open file pointer
+ * newOP           - Create a new open file pointer
+ * 
+ * inc_ref_count   - Increase the ref_count safely
+ * dec_ref_count   - Decrease the ref_count safely
 */
 typedef struct openfile {
-    int          ref_count; //count how many open file pointers refer to this struct
-    FP           *fp;       //Pointer to a file pointer
-    struct vnode *vnode;    //Pointer to a vnode
+    struct semaphore *count_mutex; /* Lock for concurrent access of ref_count */   
+    int              ref_count;   /* Count how many open file pointers refer to this struct */
+    FP               *fp;         /* Pointer to a file pointer */
+    struct vnode     *vnode;      /* Pointer to a vnode */
 } OP;
 
 OP *newOP(FP *fp, struct vnode *vnode);
+
+void inc_ref_count(OP *op);
+void dec_ref_count(OP *op);
+
 
 /**
  * User-level File functions.
@@ -66,7 +77,7 @@ OP *newOP(FP *fp, struct vnode *vnode);
  * dup2     - clone file handles
  */
 
-int sys_open(char *filename, int flags, mode_t mode); //The last argument is permission 
+int sys_open(const char *filename, int flags, mode_t mode); 
 int sys_close(int fd);
 
 ssize_t sys_read(int fd, void *buf, size_t buflen);

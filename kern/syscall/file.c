@@ -15,6 +15,7 @@
 #include <syscall.h>
 #include <copyinout.h>
 
+#include <proc.h>
 /**
  * Create a pointer to a new file pointer
  * 
@@ -50,11 +51,13 @@ FP *newFP(int flags) {
  * it at first, as more pointer refers
  * to it (from dup2() or fork()) it will go up
  * 
- * Note there might be concurrency issue with ref_count
+ * There should be only one process accessing the 
+ * open file at a time 
 */
 OP *newOP(FP *fp, struct vnode *vnode) {
     OP *op = kmalloc(sizeof *op);
     KASSERT(op != NULL);
+    op->count_mutex = sem_create("countMutex", 1);
     op->ref_count = 1;
     op->fp = fp;
     op->vnode = vnode;
@@ -63,59 +66,74 @@ OP *newOP(FP *fp, struct vnode *vnode) {
 
 /**
  * Open 
+ * 
+ * Mode is the permission which we pass in for vfs to
+ * handle it. 
  */
-int sys_open(char *filename, int flags, mode_t mode) {
+int sys_open(const char *filename, int flags, mode_t mode) {
     kprintf("This is test for open\n");
     kprintf("flags: %d\n", flags);
     kprintf("filename: %s\n", filename);
     kprintf("mode: %u\n", mode);
-    //create a vnode struct
-    struct vnode *vnode = NULL;
-    //call vfs_open with the vnode
-    int err = vfs_open(filename, flags, mode, &vnode);
-    //open file succcesful
-    if (err == 0) {
+    int result;
 
+    /* handling the copy */
+    char path[NAME_MAX];
+    size_t size;
+    result = copyinstr((userptr_t)filename, path, NAME_MAX, &size);
+    kprintf("%s\n", path);
+    if (result) {
+        return result;
     }
-    //create a new file pointer
-    //FP *fp = newFP(flags);
-    /**
-     * Get the current working directory basing on the flag
-     * if the flag O_EXCL is on then it should fail if the file 
-     * already exists
-     * 
-    */
-    //create a new openfile pointer
-    //OP *op = newOP(fp, );
-    //store the new open file pointer to current process
-    //curproc->openFileTable[curproc->lowestIndex] = op; 
+    
+    /* pass the arguments to vfs_open */
+    struct vnode *vnode = NULL;
+    result = vfs_open(path, flags, mode, &vnode);
+    kprintf("%p", vnode);
+    kprintf("%d\n", vnode->vn_refcount);
 
-
-    //point it to the struct
-    //store it into current process array
-    return 1;
-    //return the file descriptor
+    /*open file succcesful*/
+    if (result == 0) {
+        FP *fp = newFP(flags);
+        OP *op = newOP(fp, vnode);
+        int fd = curproc->lowestIndex;
+        curproc->openFileTable[fd] = op;
+        kprintf("%d ", curproc->openFileTable[3]->fp->read);
+        kprintf("%p ", curproc->openFileTable[0]);
+        kprintf("%d ", curproc->openFileTable[1]->fp->read);
+        kprintf("%d ", curproc->openFileTable[2]->fp->write);
+        kprintf("%d ", curproc->openFileTable[3]->fp->write);
+        //return the file descriptor
+        return fd;
+    }
+    //vfs_open can return something else???
+    KASSERT(1==0);
+    return 0;
 }
 
 
 /**
  * Close 
  * 
- * Check the ref_count in vnode only call vfs_close when ref_count = 1
- * and now it is safe to free all the pointers and remove from process array.
- * If not, check ref_count of openfile. Free the pointer if ref_count = 1
- * if not, remove from process array to indiciate that it is free
+ * Check the ref_count in vnode, only call vfs_close when ref_count = 1
+ * and now it is safe to free all the pointers and reset the lowest value.
+ * If not, check ref_count of openfile. Free the pointers in the process array
+ * if ref_count = 1
+ * if not, reset the lowest value to indiciate that it is free.
  *  
 */
 int sys_close(int fd) {
     kprintf("This is test for close\n");
     kprintf("%d\n", fd);
+    /* check if the fd is valid */
+    if(curproc->openFileTable[fd] == NULL) return ;
+
     //decrease the ref count in openfile
         //if openfile ref_count == 0  
             //decrease vnode ref count
             //if the vnode ref count==1
                 //call vfs_close 
-    return fd;
+    return 0;
 }
 
 //read into a buffer and advance the file pointer by buflen
