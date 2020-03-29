@@ -32,8 +32,8 @@
 /** 
  * File pointer structure 
  * 
- * newFP   - Create a pointer to a new file pointer
- * freeFP  - Free the entire structure
+ * newFP     - Create a pointer to a new file pointer
+ * freeFP    - Free the entire structure
  */
 typedef struct filePointer{
     off_t            pos;          /* Position of the file pointer */
@@ -44,6 +44,7 @@ typedef struct filePointer{
 
 FP *newFP(int flag);
 void freeFP(FP *fp);
+
 
 /** 
  * Open File structure 
@@ -80,7 +81,6 @@ int dec_ref_count(OP *op);
  * lseek    - seek to a position in a file
  * dup2     - clone file handles
  */
-
 int sys_open(const char *filename, int flags, mode_t mode); 
 int sys_close(int fd);
 

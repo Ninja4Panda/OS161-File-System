@@ -84,7 +84,7 @@ void inc_ref_count(OP *op) {
     KASSERT(op != NULL);
     P(op->count_mutex);
     op->ref_count++;
-    P(op->count_mutex);
+    V(op->count_mutex);
 }
 
 /* Decrease the ref_count safely and return the ref_count */
@@ -93,7 +93,7 @@ int dec_ref_count(OP *op) {
     P(op->count_mutex);
     op->ref_count--;
     int x = op->ref_count;
-    P(op->count_mutex);
+    V(op->count_mutex);
     return x;
 }
 
@@ -107,10 +107,7 @@ int dec_ref_count(OP *op) {
  * Returns fd on success   
  */
 int sys_open(const char *filename, int flags, mode_t mode) {
-    kprintf("This is test for open\n");
-    kprintf("flags: %d\n", flags);
-    kprintf("filename: %s\n", filename);
-    kprintf("mode: %u\n", mode);
+
     int result;
 
     /* Handling the copy */
@@ -118,14 +115,14 @@ int sys_open(const char *filename, int flags, mode_t mode) {
     size_t size;
     result = copyinstr((userptr_t)filename, path, NAME_MAX, &size);
     if (result) {
+        /* Negate every error */
         return -result;
     }
     
     /* Pass the arguments to vfs_open */
-    struct vnode *vnode = NULL;
+    struct vnode *vnode;
     result = vfs_open(path, flags, mode, &vnode);
     if(result) {
-        /* Negate every error */
         return -result;
     }
 
@@ -159,14 +156,12 @@ static int checkFD(int fd) {
 /**
  * Close 
  * 
- * Close a file and house keeping
+ * Close a file safely
  * 
  * Returns errno on error
  * Returns 1 on success 
 */
 int sys_close(int fd) {
-    kprintf("This is test for close\n");
-    kprintf("%d\n", fd);
 
     /* check if the fd is valid */
     if(checkFD(fd)) return EBADF;
@@ -191,20 +186,68 @@ int sys_close(int fd) {
     return 0;
 }
 
-//read into a buffer and advance the file pointer by buflen
+/** 
+ * Read 
+ * 
+ * Read a perviously opened file safely. 
+ * 
+ * Returns the negate of errno on error
+ * Returns number of bytes read on success   
+*/
 ssize_t sys_read(int fd, void *buf, size_t buflen) {
-    kprintf("This is test for read\n");
-    kprintf("fd: %d\n", fd);
-    kprintf("buflen: %d\n", buflen);
-    kprintf("buf: %s\n", (char*)buf);
-    return 1;
+    /* Check if the fd is valid */
+    if(checkFD(fd)) return -EBADF;
+    
+    /* Setup */
+    struct proc *proc = curproc;
+	KASSERT(proc != NULL);
+    OP *op = proc->openFileTable[fd];
+    FP *fp = op->fp;
+
+    /* Check if it is opened for read */
+    if(fp->read == 0) return -EBADF;
+
+    /* Critial region for read operation */
+    struct semaphore *pos_mutex = fp->pos_mutex; 
+    P(pos_mutex);
+
+    /* Setup */
+    struct iovec iov;
+    struct uio uio;
+    uio_uinit(&iov, &uio, (userptr_t)buf, buflen, fp->pos, UIO_READ);
+    
+    /* Read the file */
+    struct vnode* vnode = op->vnode; 
+    kprintf("ssssss%lld\n", fp->pos);
+
+    int result = VOP_READ(vnode, &uio);
+    kprintf("\n%d\n", result);  
+    if(result) {
+        V(pos_mutex);
+        return -result;
+    }
+
+    /* Get the count of bytes read */
+    size_t remain = getResid(&uio);
+    size_t bytes_read = buflen - remain;
+
+    /* Advance the fp position */
+    fp->pos += bytes_read;
+
+    /* End Critial region */
+    V(pos_mutex);
+    return bytes_read;
 }
 
+/** 
+ * Write 
+ * 
+ * Write to a perviously opened file safely. 
+ * 
+ * Returns the negate of errno on error
+ * Returns number of bytes written on success   
+*/
 ssize_t sys_write(int fd, const void *buf, size_t nbytes) {
-    kprintf("This is test for write\n");
-    kprintf("fd: %d\n", fd);
-    kprintf("bytes: %d\n", nbytes);
-    kprintf("buf: %p\n", buf);
     /* Check if the fd is valid */
     if(checkFD(fd)) return -EBADF;
 
@@ -213,24 +256,107 @@ ssize_t sys_write(int fd, const void *buf, size_t nbytes) {
 	KASSERT(proc != NULL);
     OP *op = proc->openFileTable[fd];
     FP *fp = op->fp;
-    struct vnode* vnode = op->vnode; 
 
     /* Check if it is opened for write */
     if(fp->write == 0) return -EBADF;
 
-    /* Write to the file */
-    int byte_count = VOP_WRITE(vn, uio);  
-    /* Get the count of bytes written in uio */
+    /* Critial region for write operation */
+    struct semaphore *pos_mutex = fp->pos_mutex; 
+    P(pos_mutex);
+
+    /* Setup */
+    struct iovec iov;
+    struct uio uio;
+    uio_uinit(&iov, &uio, (userptr_t)buf, nbytes, fp->pos, UIO_WRITE);
     
-    return 1;
+    /* Write to the file */
+    struct vnode* vnode = op->vnode; 
+    int result = VOP_WRITE(vnode, &uio);  
+    if(result) {
+        V(pos_mutex);
+        return -result;
+    }
+
+    /* Get the count of bytes written */
+    size_t remain = getResid(&uio);
+    size_t bytes_written = nbytes - remain;
+
+    /* Advance the fp position */
+    fp->pos += bytes_written;
+
+    /* End Critial region */
+    V(pos_mutex);
+    return bytes_written;
 }
 
+/**
+ * lseek
+ * 
+ * Seek a file position. 
+ * Advance the file pointer to the position.
+ * 
+ * Returns the negate of errno on error
+ * Returns new position on success   
+*/
 off_t sys_lseek(int fd, off_t pos, int whence) {
-    kprintf("This is test for lseek\n");
-    kprintf("lfd: %d\n", fd);
-    kprintf("pos: %lld\n", pos);
-    kprintf("whence: %d\n", whence);
-    return 1;
+
+    /* Check if the fd is valid */
+    if(checkFD(fd)) return -EBADF;
+
+    /* Check if the pos is valid */
+    if(pos < 0) return -EINVAL;
+
+    /* Setup */
+    struct proc *proc = curproc;
+	KASSERT(proc != NULL);
+    OP *op = proc->openFileTable[fd];
+    FP *fp = op->fp;
+    struct vnode* vnode = op->vnode; 
+
+    /* Check if fd supports seeking */
+    if(!VOP_ISSEEKABLE(vnode)) return -ESPIPE;
+
+    /* Setup */
+    struct stat stat;
+    int result = VOP_STAT(vnode, &stat); 
+    if(result) return -result;
+
+    struct stat *statpt = &stat;
+    off_t eof = statpt->st_size;  
+
+
+    /* Main Logic */
+    struct semaphore *pos_mutex = fp->pos_mutex; 
+    switch (whence) {
+        /* Set the fp position to pos */
+        case SEEK_SET:
+            P(pos_mutex);
+            fp->pos = pos;
+            result = fp->pos;
+            V(pos_mutex);
+            break;
+        
+        /* Advance the fp position by pos */
+        case SEEK_CUR:
+            P(pos_mutex);
+            fp->pos += pos;
+            result = fp->pos;
+            V(pos_mutex);
+            break;
+        
+        /* Set fp position to EOF + pos */
+        case SEEK_END:
+            P(pos_mutex);
+            fp->pos = eof + pos;
+            result = fp->pos;
+            V(pos_mutex);
+            break;
+        
+        default:
+            result = -EINVAL;
+    }
+
+    return result;
 }
 
 /**
@@ -248,15 +374,16 @@ int sys_dup2(int oldfd, int newfd) {
     kprintf("newfd: %d\n", newfd);
     /* Check if the fd is valid */
     if(checkFD(oldfd) || newfd < 0 || newfd >= OPEN_MAX) return -EBADF;
+    if(oldfd == newfd) return newfd;
 
     /* Setup */
     struct proc *proc = curproc;
     OP *newop = proc->openFileTable[newfd];
     OP *oldop = proc->openFileTable[oldfd];
     struct vnode *vnode = proc->openFileTable[oldfd]->vnode;
-
     /* Check if the newfd is an opened file & close it */
     if (newop != NULL) {
+        KASSERT(1==2);
         int result = sys_close(newfd);
         if (result) return -result;
     } 

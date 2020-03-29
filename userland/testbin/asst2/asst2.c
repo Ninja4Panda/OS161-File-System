@@ -121,6 +121,52 @@ main(int argc, char * argv[])
         printf("* file lseek  okay\n");
         printf("* closing file\n");
         close(fd);
+//####################################################################
+        printf("**********\n* m test\n");
+        printf("**********\n* opening new file \"hello.file\"\n");
+        
+        int fd1 = open("asfasdfsfwea.file", O_RDWR | O_CREAT, 0700); /* mode u=rw in octal */
+        printf("* open() got fd %d\n", fd1);
+
+        if (fd1 < 0) {
+            printf("ERROR file: %s\n", strerror(errno));
+            exit(1);
+        }
+
+        int he = dup2(fd1, 5);
+        printf("%d\n", he);
+        int a = 0;
+        char g[MAX_BUF];
+        char target[] = "HELLO I AM SOLOMON";
+        r = read(fd1, &g[a], MAX_BUF - a);
+        printf("\nread: ");
+        for (int i = 0; i<MAX_BUF; i++) {
+            printf("%c", g[i]);
+        }        
+        
+        printf("\nwrite");        
+        lseek(fd1, 50000, SEEK_SET);
+        r = write(5, target, strlen(target));
+        a = 0;
+        close(fd1);
+        lseek(5, 50000, SEEK_SET);
+        r = read(5, &g[a], MAX_BUF - a);
+        if (r < 0) {
+            printf("ERROR file: %s\n", strerror(errno));
+            exit(1);
+        }
+        for (int i = 0; i<MAX_BUF; i++) {
+            printf("%c", g[i]);
+        }        
+        /*
+        lseek(fd1, 0, SEEK_SET);
+        a = 0;
+        r = read(fd1, &buf[a], MAX_BUF - a);
+        printf("\nwrite");
+        for (int i = 0; i<MAX_BUF; i++) {
+            printf("%c", buf[i]);
+        } 
+        */       
 
         return 0;
 }

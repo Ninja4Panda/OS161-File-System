@@ -123,9 +123,9 @@ syscall(struct trapframe *tf)
 			} else {
 				err = 0;
 			}		
-			kprintf("%d ", retval);
-			kprintf("%d", err);
-			KASSERT(1==2);
+			// kprintf("%d ", retval);
+			// kprintf("%d", err);
+			// KASSERT(1==2);
 			break;
 
 		case SYS_close:
@@ -133,7 +133,12 @@ syscall(struct trapframe *tf)
 			break;
 
 		case SYS_read:
-			err = sys_read(tf->tf_a0, (void*)tf->tf_a1, (size_t)tf->tf_a2);
+			retval = sys_read(tf->tf_a0, (void*)tf->tf_a1, (size_t)tf->tf_a2);
+			if (retval < 0) {
+				err = -retval;
+			} else {
+				err = 0;
+			}		
 			break;
 
 		case SYS_write:
@@ -157,9 +162,13 @@ syscall(struct trapframe *tf)
 		case SYS_lseek:
 			join32to64(tf->tf_a2, tf->tf_a3, &offset);
 			copyin((userptr_t)tf->tf_sp + 16, &whence, sizeof(int));
-			err = 0;
 			retval64 = sys_lseek(tf->tf_a0, offset, whence);
-			split64to32(retval64, &tf->tf_v0, &tf->tf_v1);
+			split64to32(retval64, &tf->tf_v1, (uint32_t*)&retval);
+			if (retval64 < 0) {
+				err = -retval;
+			} else {
+				err = 0;
+			}		
 			break;
 
 	    default:

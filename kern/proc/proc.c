@@ -332,7 +332,7 @@ int findLowest(void) {
 	/* This is the lowest index */
 	int lowest = proc->lowestIndex;
 	/* Find the next lowest valid index */
-	int i = lowest;
+	int i = lowest+1;
 	while(i < OPEN_MAX) {
 		if (proc->openFileTable[i] == NULL) {
 			proc->lowestIndex = i;
@@ -341,6 +341,6 @@ int findLowest(void) {
 		i++;
 	}
 	/* Table is full and cannot find lowest free index */
-	if (i == 128) proc->lowestIndex = i;
+	if (i == 128) proc->lowestIndex = 128;
 	return lowest;
 } 
