@@ -218,10 +218,7 @@ ssize_t sys_read(int fd, void *buf, size_t buflen) {
     
     /* Read the file */
     struct vnode* vnode = op->vnode; 
-    kprintf("ssssss%lld\n", fp->pos);
-
     int result = VOP_READ(vnode, &uio);
-    kprintf("\n%d\n", result);  
     if(result) {
         V(pos_mutex);
         return -result;
@@ -369,9 +366,6 @@ off_t sys_lseek(int fd, off_t pos, int whence) {
  * Returns fd on success   
 */
 int sys_dup2(int oldfd, int newfd) {
-    kprintf("This is test for dup2\n");
-    kprintf("oldfd: %d\n", oldfd);
-    kprintf("newfd: %d\n", newfd);
     /* Check if the fd is valid */
     if(checkFD(oldfd) || newfd < 0 || newfd >= OPEN_MAX) return -EBADF;
     if(oldfd == newfd) return newfd;

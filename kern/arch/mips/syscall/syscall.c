@@ -122,10 +122,7 @@ syscall(struct trapframe *tf)
 				err = -retval;
 			} else {
 				err = 0;
-			}		
-			// kprintf("%d ", retval);
-			// kprintf("%d", err);
-			// KASSERT(1==2);
+			}
 			break;
 
 		case SYS_close:
