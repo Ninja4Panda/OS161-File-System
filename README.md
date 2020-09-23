@@ -1,2 +1,2 @@
-# UNSW-Comp3231-asst2
+# OS161 File System
 Implementing file system syscalls and data structure for OS161
